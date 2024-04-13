@@ -15,6 +15,9 @@
 #define PIBYTWO ((float)M_PI / 2.0f)
 #define SPHERE_DIV (16)
 
+#define LIGHTING
+
+
 typedef struct {
     int width;
     int height;
@@ -216,13 +219,64 @@ private:
         makeEarth();
         makeMoon();
     }
+    /*
+    GLvoid myShader(void)
+    {
+        // Render pass from light's perspective
+        glUseProgram(depthShaderProgram);
+        glViewport(0, 0, SHADOW_MAP_WIDTH, SHADOW_MAP_HEIGHT);
+        glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        // Set light's view and projection matrices
+        glm::mat4 lightView = glm::lookAt(lightPosition, sceneCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 lightProjection = glm::ortho(left, right, bottom, top, near, far);
+        glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+        glUniformMatrix4fv(lightSpaceMatrixLocation, 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+
+        // Render scene geometry
+        for (auto& object : sceneObjects) {
+            glm::mat4 model = object.getModelMatrix();
+            glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(model));
+            object.render();
+        }
+
+        // Render pass from camera's perspective
+        glUseProgram(shaderProgram);
+        glViewport(0, 0, screenWidth, screenHeight);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // Set view and projection matrices
+        glm::mat4 view = camera.getViewMatrix();
+        glm::mat4 projection = camera.getProjectionMatrix();
+        glUniformMatrix4fv(viewMatrixLocation, 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(projectionMatrixLocation, 1, GL_FALSE, glm::value_ptr(projection));
+
+        // Set light space matrix and shadow map texture
+        glUniformMatrix4fv(lightSpaceMatrixLocation, 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, depthMapTexture);
+        glUniform1i(shadowMapLocation, 1);
+
+        // Render scene geometry with shadow mapping
+        for (auto& object : sceneObjects) {
+            glm::mat4 model = object.getModelMatrix();
+            glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(model));
+            object.render();
+        }
+
+    }
+    */
     GLvoid initializeGL(GLsizei width, GLsizei height)
     {
         glShadeModel(GL_SMOOTH);
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
-        //   glEnable(GL_LIGHTING);
-        //   glEnable(GL_LIGHT0);
+#ifdef LIGHTING
+        glEnable(GL_LIGHTING);
+        glEnable(GL_LIGHT0);
+#endif
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
         glEnable(GL_TEXTURE_2D);
@@ -243,25 +297,27 @@ private:
     }
     void Lights(int on)
     {
-        static GLfloat light_ambient[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        static GLfloat light_ambient[] = { 0.20f, 0.20f, 0.20f, 0.0f };
         static GLfloat light_diffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };
         static GLfloat light_specular[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
-        static GLfloat spot0_position[] = { -1.0f, 0.0f, 0.0f, 0.0f };
-        static GLfloat spot0_direction[] = { 4.0f, 0.0f, 0.0f };
+        //static GLfloat spot0_direction[] = { 4.0f, 0.0f, 0.0f };
 
         if (on) {
 
             glEnable(GL_LIGHTING);
             glEnable(GL_LIGHT0);
 
-            glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
-            glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
-            glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
-
+            static GLfloat spot0_position[] = { 0.0f, 0.0f, 0.0f, 1.0f };
             glLightfv(GL_LIGHT0, GL_POSITION, spot0_position);
-            glLightfv(GL_LIGHT0, GL_SPOT_DIRECTION, spot0_direction);
-            glLightf(GL_LIGHT0, GL_SPOT_CUTOFF, 0.0f);
+
+            static GLfloat spot0_color[] = { 0.75f, 0.75f, 1.0f, 1.0f }; //White.
+            glLightfv(GL_LIGHT0, GL_DIFFUSE, spot0_color);
+            glLightfv(GL_LIGHT0, GL_SPECULAR, spot0_color);
+            glShadeModel(GL_SMOOTH);
+
+//            glLightfv(GL_LIGHT0, GL_SPOT_DIRECTION, spot0_direction);
+//            glLightf(GL_LIGHT0, GL_SPOT_CUTOFF, 0.0f);
         }
         else {
             glDisable(GL_LIGHTING);
@@ -319,13 +375,15 @@ public:
 
         glPushMatrix();
 
-              //Lights(0);
-
+#ifdef LIGHTING
+       Lights(0);
+#endif
         DrawSun();
 
         glRotatef(year, 0.0f, 0.0f, 1.0f);      /* Revolve earth around sun  */
-
-              //Lights(1);
+#ifdef LIGHTING
+              Lights(1);
+#endif
 
         glTranslatef(5.0f, 0.0f, 0.0f);         /* Push earth into its orbit */
 
